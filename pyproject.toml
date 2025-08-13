@@ -1,0 +1,14 @@
+[project]
+name = "tokopedia-scraper"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "crawlee[all]>=0.6.12",
+]
+
+[dependency-groups]
+dev = [
+    "ruff>=0.12.7",
+]
