@@ -2,7 +2,7 @@
   "id": "JqpdDXWHHmhBqEh",
   "unique_key": "https://www.tokopedia.com/p/handphone-tablet/handphone",
   "order_no": null,
-  "handled_at": "2025-08-07 20:39:21.973922+00:00",
+  "handled_at": "2025-08-19 00:34:35.564240+00:00",
   "request": {
     "url": "https://www.tokopedia.com/p/handphone-tablet/handphone",
     "method": "GET",
@@ -16,7 +16,7 @@
     "retry_count": 0,
     "no_retry": false,
     "loaded_url": "https://www.tokopedia.com/p/handphone-tablet/handphone",
-    "handled_at": "2025-08-07 20:39:21.973922+00:00",
+    "handled_at": "2025-08-19 00:34:35.564240+00:00",
     "unique_key": "https://www.tokopedia.com/p/handphone-tablet/handphone",
     "id": "JqpdDXWHHmhBqEh"
   }
