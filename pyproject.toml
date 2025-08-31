@@ -6,10 +6,13 @@ readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
     "crawlee[all]>=0.6.12",
-    "requests>=2.31.0",
+    "fastapi>=0.104.1",
+    "pydantic>=2.5.0",
+    "requests>=2.32.5",
+    "uvicorn[standard]>=0.35.0",
 ]
 
 [dependency-groups]
 dev = [
-    "ruff>=0.12.7",
+    "ruff>=0.12.11",
 ]
