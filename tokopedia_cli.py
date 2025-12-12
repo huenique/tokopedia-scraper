@@ -603,6 +603,12 @@ Examples:
         default=2.0,
         help="Delay between scroll actions in seconds (default: 2.0)",
     )
+    parser.add_argument(
+        "--job-id",
+        type=str,
+        default=None,
+        help="Job ID for tracking this scraping session (auto-generated if not provided)",
+    )
 
     return parser
 

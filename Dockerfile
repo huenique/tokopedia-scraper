@@ -48,14 +48,14 @@ USER scraper
 ENV PYTHONUNBUFFERED=1
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV HOST=0.0.0.0
-ENV PORT=8002
+ENV PORT=8000
 
 # Expose port
-EXPOSE 8002
+EXPOSE 8000
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
-    CMD curl -f http://localhost:8002/health || exit 1
+    CMD curl -f http://localhost:8000/health || exit 1
 
 # Start the service
-CMD ["uv", "run", "uvicorn", "api_service:app", "--host", "0.0.0.0", "--port", "8002"]
+CMD ["uv", "run", "uvicorn", "api.main:app", "--host", "0.0.0.0", "--port", "8000"]
