@@ -14,10 +14,11 @@ from common.config import Config
 from common.job_metadata import JobMetadata, JobStatus
 from common.logger import get_logger
 from common.path_utils import PathUtils
+from csv_writer import TokopediaCSVWriter
 from fastapi import BackgroundTasks, FastAPI, HTTPException, Query
 from pydantic import BaseModel, Field
 
-# Import the scraper
+# Import the scraper and CSV writer
 from tokopedia_graphql import TokopediaGraphQLScraper
 
 logger = get_logger(__name__)
@@ -253,26 +254,38 @@ async def run_scraper_job(
         job_metadata.update_status(JobStatus.RUNNING)
         job_metadata.save(path_utils.get_job_metadata_path(job_metadata.job_id))
 
-        # Create scraper instance
-        scraper = TokopediaGraphQLScraper()
+        # Create scraper instance with config
+        config = {
+            "keyword": query,
+            "brand": brand,
+            "max_products": max_products,
+            "max_pages": pages,
+            "delay": 1.0,
+        }
+        scraper = TokopediaGraphQLScraper(config)
 
         logger.info(f"Starting scrape for query: {query}")
 
-        # Execute the scraping
-        results = await scraper.search_products(
-            query=query,
-            brand=brand,
-            max_products=max_products,
-            pages=pages,
-        )
+        # Execute the scraping (synchronous method)
+        results = scraper.scrape_products()
 
-        # Save results
+        # Save JSON results
         json_dir = path_utils.get_job_json_dir(job_metadata.job_id)
         results_file = json_dir / "results.json"
         with open(results_file, "w") as f:
             json.dump(results, f, indent=2)
 
         job_metadata.add_output_file("json/results.json")
+
+        # Save CSV results
+        csv_dir = path_utils.get_job_csv_dir(job_metadata.job_id)
+        csv_file = csv_dir / "results.csv"
+        csv_writer = TokopediaCSVWriter(csv_file)
+        csv_writer.write_products(results)
+        job_metadata.add_output_file("csv/results.csv")
+
+        logger.info(f"Saved {len(results)} products to JSON and CSV")
+
         job_metadata.set_results_summary(
             total_products=len(results),
             query=query,

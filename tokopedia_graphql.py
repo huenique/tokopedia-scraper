@@ -19,10 +19,16 @@ import sys
 import time
 import uuid
 from datetime import datetime
+from pathlib import Path
 from typing import Any, Dict, List, Optional, cast
 from urllib.parse import quote
 
 import requests
+from common.job_metadata import JobMetadata, JobStatus
+from common.path_utils import PathUtils
+
+# Import CSV writer and job metadata
+from csv_writer import TokopediaCSVWriter
 
 
 class TokopediaTranslator:
@@ -757,32 +763,68 @@ def main() -> None:
     }
 
     try:
+        # Generate job ID for CLI execution
+        job_id = str(uuid.uuid4())
+        
+        # Initialize path utils and job metadata
+        path_utils = PathUtils()
+        job_metadata = JobMetadata(
+            job_id=job_id,
+            parameters={
+                "query": args.keyword,
+                "brand": args.brand,
+                "max_products": args.max_products,
+                "max_pages": args.max_pages,
+            }
+        )
+        
+        print(f"\n🆔 Job ID: {job_id}")
+        
         # Initialize and run scraper
         scraper = TokopediaGraphQLScraper(config)
+        
+        job_metadata.update_status(JobStatus.RUNNING)
         products = scraper.scrape_products()
 
         # Output results
         if products:
-            _ = json.dumps(products, indent=2, ensure_ascii=False)
-
             print(f"\nTotal Products Scraped: {len(products)}")
 
-            # Save to file
-            now = datetime.now()
-            date = now.strftime("%Y%m%d")
-            unix_timestamp = int(time.time())
-            brand = args.brand.lower().replace(" ", "-")
-            filename = f"tokopedia_{brand}_{date}_{unix_timestamp}.json"
-            filepath = f"results/{filename}"
-
-            # Ensure results directory exists
-            os.makedirs("results", exist_ok=True)
-
-            with open(filepath, "w", encoding="utf-8") as f:
+            # Create job directories
+            path_utils.ensure_job_dirs(job_id)
+            json_dir = path_utils.get_job_json_dir(job_id)
+            csv_dir = path_utils.get_job_csv_dir(job_id)
+            
+            # Save JSON
+            json_file = json_dir / "results.json"
+            with open(json_file, "w", encoding="utf-8") as f:
                 json.dump(products, f, indent=2, ensure_ascii=False)
-            print(f"\n💾 Results saved to: {filepath}")
+            print(f"\n💾 JSON results saved to: {json_file}")
+            job_metadata.add_output_file("json/results.json")
+            
+            # Save CSV
+            csv_file = csv_dir / "results.csv"
+            csv_writer = TokopediaCSVWriter(csv_file)
+            csv_writer.write_products(products)
+            print(f"💾 CSV results saved to: {csv_file}")
+            job_metadata.add_output_file("csv/results.csv")
+            
+            # Update job metadata
+            job_metadata.set_results_summary(
+                total_products=len(products),
+                query=args.keyword,
+                brand=args.brand,
+                max_products=args.max_products,
+                max_pages=args.max_pages,
+            )
+            job_metadata.update_status(JobStatus.COMPLETED)
+            job_metadata.save(path_utils.get_job_metadata_path(job_id))
+            
+            print(f"📋 Job metadata saved to: {path_utils.get_job_metadata_path(job_id)}")
         else:
             print("\n⚠️ No products found.")
+            job_metadata.update_status(JobStatus.FAILED, error_message="No products found")
+            job_metadata.save(path_utils.get_job_metadata_path(job_id))
             sys.exit(1)
 
     except KeyboardInterrupt:
@@ -790,6 +832,9 @@ def main() -> None:
         sys.exit(0)
     except Exception as e:
         print(f"\n❌ Error during scraping: {e}")
+        if 'job_id' in locals() and 'path_utils' in locals():
+            job_metadata.update_status(JobStatus.FAILED, error_message=str(e))
+            job_metadata.save(path_utils.get_job_metadata_path(job_id))
         sys.exit(1)
 
 

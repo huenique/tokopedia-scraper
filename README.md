@@ -11,7 +11,7 @@ The **GraphQL scraper** (`tokopedia_graphql.py`) is our **recommended approach**
 - 💡 **Lower Resources**: No browser process overhead (~50MB vs ~500MB+)
 - 🔄 **Smart Pagination**: Handles unlimited products efficiently
 - 🌍 **Translation**: Indonesian → English terms
-- 📊 **Clean Output**: Structured JSON with consistent formatting
+- 📊 **Dual Output**: Structured JSON and CSV (unified template format)
 
 ## 📦 Installation
 
@@ -42,6 +42,8 @@ uv run python tokopedia_graphql.py -k "smartphone" -b "Samsung" --max-pages 3
 uv run python tokopedia_graphql.py -k "laptop" -b "MacBook" --max-products 100 --delay 2.0
 ```
 
+**Note:** Each run generates a unique Job ID and saves results to `results/jobs/{job_id}/`
+
 ## 📋 Available Scrapers
 
 ### 1. **GraphQL Scraper** (Recommended) ⭐
@@ -63,7 +65,7 @@ uv run python tokopedia_graphql.py \
   --delay 1.5
 ```
 
-**Options:**
+#### Options (GraphQL Scraper)
 
 - `--keyword` / `-k`: Search keyword (required)
 - `--brand` / `-b`: Brand filter (required)
@@ -86,7 +88,7 @@ uv run python tokopedia_cli.py --keyword "smartphone" --brand "iPhone"
 uv run python tokopedia_cli.py --keyword "smartphone" --brand "iPhone" --max-pages 3
 ```
 
-**Options:**
+#### Options (Browser Scraper)
 
 - `--keyword` / `-k`: Search keyword (required)
 - `--brand` / `-b`: Brand filter (required)  
@@ -97,39 +99,74 @@ uv run python tokopedia_cli.py --keyword "smartphone" --brand "iPhone" --max-pag
 
 ### 3. **REST API Service** (Production Ready) 🚀
 
-**File**: `api_service.py`  
-**Method**: FastAPI-based REST API with job management  
-**Use Case**: Integration with other applications, web services  
+Tokopedia scraper provides two API implementations:
+
+1. **Standard API** (`api/main.py`) - Aligned with other scrapers using `/api/v1/jobs` pattern
+2. **Legacy API** (`api_service.py`) - Original API with `/scrape/*` endpoints
+
+#### Starting the API Server
 
 ```bash
-# Start the API server
+# Using the startup script (Legacy API on port 8002)
 ./start_api.sh
-# Or manually: uv run uvicorn api_service:app --host 0.0.0.0 --port 8002 --reload
 
-# API will be available at:
-# - Main API: http://localhost:8002
-# - Interactive Docs: http://localhost:8002/docs
-# - OpenAPI Spec: http://localhost:8002/openapi.json
+# Or manually - Legacy API
+uv run uvicorn api_service:app --host 0.0.0.0 --port 8002 --reload
+
+# Or manually - Standard API (on port 8003)
+uv run uvicorn api.main:app --host 0.0.0.0 --port 8003 --reload
 ```
 
-**Features:**
+The API will be available at:
 
-- ✅ **Asynchronous job processing** with status tracking
-- ✅ **RESTful endpoints** for starting, monitoring, and retrieving scrapes
-- ✅ **Job management** with unique job IDs
-- ✅ **Error handling** and progress tracking
-- ✅ **Interactive API documentation** (Swagger UI)
-- ✅ **Uses GraphQL scraper** internally for best performance
+- **Legacy API**: <http://localhost:8002> (uses GraphQL scraper internally)
+- **Standard API**: <http://localhost:8003>
+- **Interactive Docs**: <http://localhost:8002/docs> or <http://localhost:8003/docs>
+- **OpenAPI Spec**: <http://localhost:8002/openapi.json> or <http://localhost:8003/openapi.json>
 
-## 🌐 API Usage (REST Service)
+#### Standard API Endpoints (`/api/v1/jobs`)
 
-For programmatic access or integration with other applications:
+#### Health Check (Standard API)
 
 ```bash
-# Start the API server
-./start_api.sh
+curl http://localhost:8003/health
+```
 
-# Make API requests
+#### Create Scraping Job (Standard API)
+
+```bash
+curl -X POST "http://localhost:8003/api/v1/jobs?query=smartphone&brand=iPhone&max_products=100"
+```
+
+#### Get Job Status (Standard API)
+
+```bash
+curl http://localhost:8003/api/v1/jobs/{job_id}
+```
+
+#### Get Job Results (with pagination, Standard API)
+
+```bash
+curl "http://localhost:8003/api/v1/jobs/{job_id}/results?page=1&page_size=50"
+```
+
+#### List All Jobs (Standard API)
+
+```bash
+curl http://localhost:8003/api/v1/jobs
+```
+
+#### Delete Job (Standard API)
+
+```bash
+curl -X DELETE http://localhost:8003/api/v1/jobs/{job_id}
+```
+
+#### Legacy API Endpoints (`/scrape/*`)
+
+#### Create Scraping Job (Legacy API)
+
+```bash
 curl -X POST "http://localhost:8002/scrape/search" \
   -H "Content-Type: application/json" \
   -d '{
@@ -138,19 +175,48 @@ curl -X POST "http://localhost:8002/scrape/search" \
     "max_products": 100,
     "output_format": "json"
   }'
+```
 
-# Check job status  
+#### Check Job Status (Legacy API)
+
+```bash
 curl "http://localhost:8002/scrape/status/{job_id}"
+```
 
-# Get results
+#### Get Results (Legacy API)
+
+```bash
 curl "http://localhost:8002/scrape/results/{job_id}"
 ```
+
+#### List All Jobs (Legacy API)
+
+```bash
+curl "http://localhost:8002/scrape/jobs"
+```
+
+#### Delete Job (Legacy API)
+
+```bash
+curl -X DELETE "http://localhost:8002/scrape/jobs/{job_id}"
+```
+
+#### Features
+
+- ✅ **Asynchronous job processing** with status tracking
+- ✅ **RESTful endpoints** for starting, monitoring, and retrieving scrapes
+- ✅ **Job management** with unique job IDs
+- ✅ **Error handling** and progress tracking
+- ✅ **Interactive API documentation** (Swagger UI)
+- ✅ **Uses GraphQL scraper** internally for best performance
 
 See [API_GUIDE.md](API_GUIDE.md) for complete API documentation.
 
 ## 📊 Output Format
 
-Both scrapers produce identical JSON output:
+Both scrapers produce **JSON and CSV** output:
+
+### JSON Format
 
 ```json
 {
@@ -173,7 +239,48 @@ Both scrapers produce identical JSON output:
 }
 ```
 
-Results are saved to: `results/tokopedia_{brand}_{date}_{timestamp}.json`
+### CSV Format
+
+CSV files follow the **unified template format** for uploading listings with these columns:
+
+```txt
+Listing Title*, Listings URL*, Image URL*, Marketplace*, Price*, Shipping, 
+Units Available, Item Number, Brand, ASIN, UPC, Walmart ID, Seller's Name*, 
+Seller's URL*, Seller's Business Name, Seller's Address, Seller's Email, 
+Seller's Phone Number
+```
+
+#### Output Files
+
+Both CLI and API modes use the **same job-based structure**:
+
+- `results/jobs/{job_id}/json/results.json`
+- `results/jobs/{job_id}/csv/results.csv`
+- `results/jobs/{job_id}/job_metadata.json`
+
+The CLI will display the job ID when starting, allowing you to track and locate the results:
+
+```bash
+🆔 Job ID: e18408a4-9e9d-4735-a1a9-4240f48bb698
+```
+
+## 🔄 Utilities
+
+### CSV Regeneration
+
+If you have existing job results with only JSON files, you can regenerate CSV files:
+
+```bash
+# Regenerate CSV files for all jobs that have JSON but no CSV
+uv run python regenerate_csv.py
+```
+
+This utility will:
+
+- Scan all job directories in `results/jobs/`
+- Find jobs with JSON results but no CSV
+- Generate CSV files matching the unified template format
+- Skip jobs that already have CSV files
 
 ## ⚡ Performance Comparison
 
@@ -216,7 +323,7 @@ uv run python tokopedia_cli.py -k "laptop" -b "MacBook" --max-pages 2 --delay 3.
 
 ### Rate Limiting & Politeness
 
-**GraphQL Scraper:**
+#### GraphQL Scraper
 
 ```bash
 # Slow and respectful (3-second delays)
@@ -226,7 +333,7 @@ uv run python tokopedia_graphql.py -k "smartphone" -b "Oppo" --max-products 200 
 uv run python tokopedia_graphql.py -k "smartphone" -b "Vivo" --max-products 100
 ```
 
-**Browser Scraper:**
+#### Browser Scraper
 
 ```bash
 # Slow scrolling (3-second delays between scrolls)
